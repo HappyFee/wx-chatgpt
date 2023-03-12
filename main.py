@@ -2,7 +2,6 @@ from flask import Flask, request, jsonify
 import hashlib
 import time
 import xmltodict
-import openai
 import os
 from chatbotv3 import Chatbot
 
