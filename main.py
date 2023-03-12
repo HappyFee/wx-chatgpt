@@ -55,13 +55,22 @@ def wechat():
         if 'text' == req.get('MsgType'):
             # 获取用户的信息，开始构造返回数据
             try:
-                resp = {
+                if 'jisilu' in req.get('Content'):
+                    resp = {
                     'ToUserName':req.get('FromUserName'),
                     'FromUserName':req.get('ToUserName'),
                     'CreateTime':int(time.time()),
                     'MsgType':'text',
-                    'Content':chatbot.ask(req.get('Content'))
+                    'Content':chatbot.jisilu()
                 }
+                else:
+                    resp = {
+                        'ToUserName':req.get('FromUserName'),
+                        'FromUserName':req.get('ToUserName'),
+                        'CreateTime':int(time.time()),
+                        'MsgType':'text',
+                        'Content':chatbot.ask(req.get('Content'))
+                    }
                 # 把构造的字典转换成xml格式
                 xml = xmltodict.unparse({'xml':resp})
                 return xml

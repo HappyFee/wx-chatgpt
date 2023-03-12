@@ -273,6 +273,127 @@ Config Commands:
             return False
 
         return True
+    
+    def get_data(self, page_list, page_data, err_count, err_list):
+
+        show_template = ["bond_id", "bond_nm", "price", "increase_rt","stock_id","stock_nm","sprice","sincrease_rt","convert_price","convert_value","premium_rt","dblow","adjust_condition","rating_cd","force_redeem_price","convert_amt_ratio","short_maturity_dt","year_left","curr_iss_amt","ytm_rt","bond_nm_tip","convert_price_tips","convert_cd_tip","ref_yield_info"]
+        for ele in page_list:
+            tmp = list(filter(lambda x: x['bond_id']== ele['bond_id'], page_data))
+            if len(tmp)> 0:
+                tmp = tmp[0]
+            else:
+                #print("error", ele["bond_id"])#, ele)
+                err_count += 1
+                err_list.append(ele["bond_id"])
+            for template in show_template:
+                if template not in ele and template in tmp:
+                    ele[template] = tmp[template]
+
+        return err_count, err_list
+
+    def jisilu(self) -> None:
+        
+        headers = {
+            'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/101.0.4951.67 Safari/537.36',
+            'Referer':"https://www.jisilu.cn/web/data/cb/list",
+            #'Columns': '1,70,2,3,5,6,11,12,14,15,16,29,30,32,34,35,75,44,46,47,52,53,54,56,57,58,59,60,62,63,67',
+            #'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6',
+            #'Cookie': 'Hm_lvt_164fe01b1433a19b507595a43bf58262=1627209458,1627209724,1627216989,1627915638; kbzw__Session=k86o56au3ckn0hvsohj2mmk8e0',
+            }
+        #usr_name, password, return_url= "https://www.jisilu.cn/", auto_login = 1, aes = 1
+        #登录
+        login_url = 'https://www.jisilu.cn/webapi/account/login_process/'
+        session = requests.Session()
+        data = {
+            'ase':1,
+            'auto_login': 1,
+            'password': "0e0b00d7ca83c69ccb66b4a8ba426921",
+            'return_url': "https://www.jisilu.cn/",
+            'user_name': "6a33b283968dc30895abf2ef691aca35"
+        }
+        login_txt = session.post(url = login_url, data = data, headers = headers ).json()
+        if login_txt["code"] == 200:
+            pass
+        else:
+            print("error")
+
+#        print('login_txt:', login_txt)
+
+        url= 'https://www.jisilu.cn/webapi/cb/list_new/'
+        url2 = 'https://www.jisilu.cn/webapi/cb_chart/industry_group/'
+        page_list = session.get(url=url, headers=headers).json()['data']
+        page_data = session.get(url=url2, headers=headers).json()['data']
+        #print(list(filter(lambda x: x['bond_id'] == '123070', page_list['data'])))
+        #print(len(page_data))
+        err_count = 0
+        err_list = []
+
+        #print(page_list, page_data)
+        all_template = {"bond_id":"代码","bond_nm":"名称","price":"现价","increase_rt":"涨跌幅","stock_id":"正股编码","stock_nm":"正股名称","stock_py":"正股缩写","sprice":"正股价格","sincrease_rt":"正股涨跌","pb":"正股PB","convert_price":"转股价","convert_value":"转股价值","premium_rt":"转股溢价率","dblow":"双低","adjust_condition":"下修条件","rating_cd":"评级","put_convert_price":"回售触发价","force_redeem_price":"强赎触发价","convert_amt_ratio":"转债流通市值占比","short_maturity_dt":"到期时间","year_left":"剩余年限","curr_iss_amt":"剩余规模（亿元）","volume":"成交额（万元）","turnover_rt":"换手率","ytm_rt":"到期税前收益率","province":"省份","bond_nm_tip":"转债提示","convert_price_tips":"转股价格提示","convert_cd_tip":"转股提示","ref_yield_info":"信息","adjusted":"已调整","price_tips":"价格提示"}
+        err_count, err_list = self.get_data(page_list, page_data,err_count, err_list)
+        save_data = []
+        show_data = []
+        for data in page_list:
+            tmp = {}
+            save_tmp = {}
+            for id, mem in data.items():
+                if id in all_template.keys():
+
+                    tmp[all_template[id]] = mem
+                    save_tmp[id] = mem
+                else:
+                    tmp[id] = mem
+                    save_tmp[id] = mem
+            show_data.append(tmp)
+            save_data.append(save_tmp)
+        count = 0
+        no_name_num = 0
+        no_name_list = []
+        filter_nondustry_data = []
+        for i, ele in enumerate(show_data):
+            if "名称" in ele.keys():
+                #print(ele["名称"])
+                count += 1
+                filter_nondustry_data.append(save_data[i])
+            else:
+                no_name_list.append(ele['代码'])
+                no_name_num += 1
+
+        print("No name num:", no_name_num)
+        print("Have name number:", count)
+        print("dustry data don't have number:", err_count)
+        print("All number of dustry data:", len(page_data))
+        print("The bond_id of  not have name:", no_name_list)
+        #"dblow":"双低""year_left":"剩余年限","curr_iss_amt":"剩余规模（亿元）",
+
+        order_data = sorted(filter_nondustry_data, key = lambda x:x["dblow"])
+        filter_data = list(filter(lambda x:x["year_left"]>1 and x["curr_iss_amt"]<= 10 and x["price"] < 130, order_data))
+        count_dblow = 0
+        res = []
+        for ele in filter_data[:15]:
+            temp = []
+            if ele["bond_nm"][2:] == "转债":
+                temp.append(ele["bond_nm"][:2])
+                temp.append(all_template["price"])
+                temp.append(ele["price"])
+                temp.append(all_template["premium_rt"])
+                temp.append(ele["premium_rt"])
+                
+                res.append(temp)
+                print(ele["bond_nm"][:2], end = ' ')
+            else:
+                temp.append(ele["bond_nm"][:2])
+                temp.append(all_template["price"])
+                temp.append(ele["price"])
+                temp.append(all_template["premium_rt"])
+                temp.append(ele["premium_rt"])
+                
+                res.append(temp)
+                print(ele["bond_nm"], end = ' ')
+
+            count_dblow += 1
+        return res
+
 
 
 def main():
