@@ -392,6 +392,7 @@ Config Commands:
                 print(ele["bond_nm"], end = ' ')
 
             count_dblow += 1
+        res = "".join(res)
         return res
 
 
